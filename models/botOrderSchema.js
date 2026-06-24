@@ -10,7 +10,7 @@ const botOrderSchema = new mongoose.Schema(
     telegramId: { type: Number, required: true },
     product: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
+      ref: "productToOrder",
       required: true,
     },
     quantity: { type: Number, required: true, min: 1 },
