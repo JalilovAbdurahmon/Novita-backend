@@ -15,7 +15,12 @@ import { initClientBot } from "./telegramClientBot.js";
 
 let app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: ["https://novita-new.vercel.app", "https://t.me"],
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "15mb" }));
 app.use(order);
 app.use(user);
