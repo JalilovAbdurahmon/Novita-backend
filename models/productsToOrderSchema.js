@@ -17,9 +17,18 @@ let ProductToOrderSchema = mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    image: { type: String, default: "" },
-    description: { type: String, default: "" }, // ixtiyoriy, lekin dizaynda ishlatiladi
-    category: { type: String, default: "Barchasi" }, // kategoriya uchun
+    image: {
+      type: String,
+      default: "",
+    },
+    description: {
+      type: String,
+      default: "",
+    }, // ixtiyoriy, lekin dizaynda ishlatiladi
+    category: {
+      type: String,
+      default: "Barchasi",
+    }, // kategoriya uchun
   },
   {
     timestamps: true,

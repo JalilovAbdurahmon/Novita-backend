@@ -7,7 +7,7 @@ const route = express.Router();
 
 route.post("/products", auth, async (req, res) => {
   try {
-    const { name, price, isActive } = req.body;
+    const { name, price, image, isActive } = req.body;
 
     if (!name) {
       return res
@@ -28,6 +28,7 @@ route.post("/products", auth, async (req, res) => {
     const newProduct = await ProductsToOrder.create({
       name: name?.trim(),
       price,
+      image,
       isActive,
     });
 
