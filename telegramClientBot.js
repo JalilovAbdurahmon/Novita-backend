@@ -27,7 +27,7 @@ const t = {
     menu: "📋 Asosiy menyu:",
     order: "🛒 Menu",
     changeLang: "🌐 Tilni o'zgartirish",
-    orderBtn: "🛒 Zakaz berish",
+    orderBtn: "🛒 Menu",
     sendLocation:
       "📍 Joylashuvingizni yuboring:\n\n⚠️ GPS (joylashuv xizmati) yoqilganligiga ishonch hosil qiling, aks holda joylashuv noto'g'ri yuborilishi mumkin.",
     orderDone: (product, qty) =>
@@ -46,7 +46,7 @@ const t = {
     menu: "📋 Главное меню:",
     order: "🛒 Меню",
     changeLang: "🌐 Сменить язык",
-    orderBtn: "🛒 Заказать",
+    orderBtn: "🛒 Меню",
     sendLocation:
       "📍 Отправьте вашу геолокацию:\n\n⚠️ Убедитесь, что GPS (служба геолокации) включена, иначе локация может быть отправлена неправильно.",
     orderDone: (product, qty) => `✅ Заказ принят!\n📦 ${product} — ${qty} шт`,
