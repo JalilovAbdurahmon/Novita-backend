@@ -86,4 +86,18 @@ router.post("/order", async (req, res) => {
   }
 });
 
+router.delete("/orders/:id", auth, async (req, res) => {
+  try {
+    const order = await BotOrder.findByIdAndDelete(req.params.id);
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Zakaz topilmadi" });
+    }
+    res.json({ success: true, message: "Zakaz o'chirildi", data: order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 export default router;
