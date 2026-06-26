@@ -9,6 +9,11 @@ const MINI_APP_URL = process.env.MINI_APP_URL; // masalan: https://yoursite.com/
 
 let clientBot = null;
 
+// Location kelguncha "kutilayotgan" zakazlar shu yerda vaqtincha saqlanadi
+// (telegramId -> { productId, quantity })
+// Eslatma: bu xotirada (RAM) saqlanadi, bot qayta ishga tushsa tozalanadi.
+const pendingOrders = new Map();
+
 // ─── TILGA QARAB TEXTLAR ──────────────────────────────────────────────────────
 const t = {
   uz: {
@@ -23,7 +28,8 @@ const t = {
     order: "🛒 Zakaz berish",
     changeLang: "🌐 Tilni o'zgartirish",
     orderBtn: "🛒 Zakaz berish",
-    sendLocation: "📍 Joylashuvingizni yuboring:",
+    sendLocation:
+      "📍 Joylashuvingizni yuboring:\n\n⚠️ GPS (joylashuv xizmati) yoqilganligiga ishonch hosil qiling, aks holda joylashuv noto'g'ri yuborilishi mumkin.",
     orderDone: (product, qty) =>
       `✅ Zakaz qabul qilindi!\n📦 ${product} — ${qty} ta`,
     namePrompt: "Iltimos, faqat ism kiriting (harflar bilan):",
@@ -41,7 +47,8 @@ const t = {
     order: "🛒 Заказать",
     changeLang: "🌐 Сменить язык",
     orderBtn: "🛒 Заказать",
-    sendLocation: "📍 Отправьте вашу геолокацию:",
+    sendLocation:
+      "📍 Отправьте вашу геолокацию:\n\n⚠️ Убедитесь, что GPS (служба геолокации) включена, иначе локация может быть отправлена неправильно.",
     orderDone: (product, qty) => `✅ Заказ принят!\n📦 ${product} — ${qty} шт`,
     namePrompt: "Пожалуйста, введите только имя (буквами):",
     phonePrompt: "Пожалуйста, нажмите кнопку и отправьте номер телефона:",
@@ -60,12 +67,17 @@ const langKeyboard = {
   },
 };
 
+// MiniApp ga til (lang) parametrini URL orqali uzatamiz, shunda MiniApp
+// botda tanlangan til bilan ochiladi.
 const mainMenu = (lang) => {
   const MINI_APP_URL = process.env.MINI_APP_URL;
+  const separator = MINI_APP_URL.includes("?") ? "&" : "?";
+  const urlWithLang = `${MINI_APP_URL}${separator}lang=${lang}`;
+
   return {
     reply_markup: {
       keyboard: [
-        [{ text: t[lang].orderBtn, web_app: { url: MINI_APP_URL } }],
+        [{ text: t[lang].orderBtn, web_app: { url: urlWithLang } }],
         [{ text: t[lang].changeLang }],
       ],
       resize_keyboard: true,
@@ -160,11 +172,31 @@ export const initClientBot = () => {
 
     if (query.data === "lang_uz" || query.data === "lang_ru") {
       const lang = query.data === "lang_uz" ? "uz" : "ru";
-      await BotUser.findOneAndUpdate({ telegramId }, { lang, step: "name" });
       await clientBot.answerCallbackQuery(query.id);
-      await clientBot.sendMessage(chatId, t[lang].enterName, {
-        reply_markup: { remove_keyboard: true },
-      });
+
+      const user = await BotUser.findOne({ telegramId });
+
+      if (user?.isVerified) {
+        // Foydalanuvchi avval ro'yxatdan o'tgan — faqat tilini yangilaymiz,
+        // ism/telefon qayta so'ralmaydi.
+        user.lang = lang;
+        user.step = "done";
+        await user.save();
+        await clientBot.sendMessage(
+          chatId,
+          t[lang].welcome(user.fullName),
+          mainMenu(lang)
+        );
+      } else {
+        // Birinchi marta ro'yxatdan o'tish — ism va telefon so'raladi.
+        await BotUser.findOneAndUpdate(
+          { telegramId },
+          { lang, step: "name" }
+        );
+        await clientBot.sendMessage(chatId, t[lang].enterName, {
+          reply_markup: { remove_keyboard: true },
+        });
+      }
     }
   });
 
@@ -228,31 +260,37 @@ export const initClientBot = () => {
       user.isVerified &&
       (msg.text === t.uz.changeLang || msg.text === t.ru.changeLang)
     ) {
-      user.step = "lang";
-      await user.save();
+      // Faqat til tanlash inline tugmasini ko'rsatamiz.
+      // step ni o'zgartirmaymiz — shu bilan ism/telefon qayta so'ralmaydi
+      // (callback_query handlerida isVerified tekshiriladi).
       await clientBot.sendMessage(chatId, t.uz.chooseLang, langKeyboard);
       return;
     }
 
     // ── Location ────────────────────────────────────────────────────────────
     if (user.isVerified && msg.location) {
-      const pendingOrder = await BotOrder.findOne({
+      const pending = pendingOrders.get(telegramId);
+      if (!pending) return;
+
+      const product = await Product.findById(pending.productId);
+
+      const newOrder = new BotOrder({
+        botUser: user._id,
         telegramId,
-        "location.lat": 0,
-        "location.lng": 0,
-      }).populate("product");
+        product: pending.productId,
+        quantity: pending.quantity,
+        location: {
+          lat: msg.location.latitude,
+          lng: msg.location.longitude,
+        },
+      });
+      await newOrder.save();
 
-      if (!pendingOrder) return;
-
-      pendingOrder.location = {
-        lat: msg.location.latitude,
-        lng: msg.location.longitude,
-      };
-      await pendingOrder.save();
+      pendingOrders.delete(telegramId);
 
       await clientBot.sendMessage(
         chatId,
-        t[lang].orderDone(pendingOrder.product?.name, pendingOrder.quantity),
+        t[lang].orderDone(product?.name, pending.quantity),
         mainMenu(lang)
       );
       return;
@@ -278,14 +316,9 @@ export const initClientBot = () => {
       const product = await Product.findById(productId);
       if (!product) return;
 
-      const newOrder = new BotOrder({
-        botUser: user._id,
-        telegramId,
-        product: product._id,
-        quantity,
-        location: { lat: 0, lng: 0 },
-      });
-      await newOrder.save();
+      // BotOrder hali yaratilmaydi — faqat location kelganda yaratiladi,
+      // shunda tizimga (frontga) zakaz lokatsiya tashlanmaguncha tushmaydi.
+      pendingOrders.set(telegramId, { productId: product._id, quantity });
 
       await clientBot.sendMessage(
         chatId,
