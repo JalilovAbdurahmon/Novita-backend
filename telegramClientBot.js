@@ -25,7 +25,7 @@ const t = {
       `✅ Xush kelibsiz, ${name}!\n\nQuyidagi menyudan foydalaning:`,
     alreadyDone: "✅ Siz allaqachon ro'yxatdan o'tgansiz!",
     menu: "📋 Asosiy menyu:",
-    order: "🛒 Zakaz berish",
+    order: "🛒 Menu",
     changeLang: "🌐 Tilni o'zgartirish",
     orderBtn: "🛒 Zakaz berish",
     sendLocation:
@@ -44,7 +44,7 @@ const t = {
       `✅ Добро пожаловать, ${name}!\n\nИспользуйте меню ниже:`,
     alreadyDone: "✅ Вы уже зарегистрированы!",
     menu: "📋 Главное меню:",
-    order: "🛒 Заказать",
+    order: "🛒 Меню",
     changeLang: "🌐 Сменить язык",
     orderBtn: "🛒 Заказать",
     sendLocation:
