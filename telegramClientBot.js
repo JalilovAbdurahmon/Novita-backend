@@ -7,7 +7,7 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 let clientBot = null;
 
 // Korxonaning statik aloqa raqami (hammaga bir xil chiqadi)
-const SUPPORT_PHONE = "+998712022020";
+const SUPPORT_PHONE = "+998900237522";
 
 const t = {
   uz: {
@@ -41,7 +41,7 @@ const t = {
     orderBtn: "🛒 Меню",
     contactBtn: "📞 Контакт",
     contactText:
-      "Бездан мамнунмисиз?\nКак вам у нас?\nОставьте свой отзыв, мы всегда онлайн!\n\n" +
+      "Как вам у нас?\nОставьте свой отзыв, мы всегда онлайн!\n\n" +
       "📞 " + SUPPORT_PHONE,
     orderDone: (lines, total) =>
       `✅ Заказ принят!\n\n${lines}\n\n💰 Итого: ${total.toLocaleString("ru-RU")} сум`,
