@@ -6,6 +6,9 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 
 let clientBot = null;
 
+// Korxonaning statik aloqa raqami (hammaga bir xil chiqadi)
+const SUPPORT_PHONE = "+998712022020";
+
 const t = {
   uz: {
     chooseLang: "🌐 Tilni tanlang / Выберите язык:",
@@ -17,6 +20,10 @@ const t = {
     menu: "📋 Asosiy menyu:",
     changeLang: "🌐 Tilni o'zgartirish",
     orderBtn: "🛒 Menu",
+    contactBtn: "📞 Kontakt",
+    contactText:
+      "Bizdan mamnunmisiz?\nFikringizni qoldiring, biz doimo aloqadamiz!\n\n" +
+      "📞 " + SUPPORT_PHONE,
     orderDone: (lines, total) =>
       `✅ Zakaz qabul qilindi!\n\n${lines}\n\n💰 Jami: ${total.toLocaleString("ru-RU")} so'm`,
     namePrompt: "Iltimos, faqat ism kiriting (harflar bilan):",
@@ -32,6 +39,10 @@ const t = {
     menu: "📋 Главное меню:",
     changeLang: "🌐 Сменить язык",
     orderBtn: "🛒 Меню",
+    contactBtn: "📞 Контакт",
+    contactText:
+      "Бездан мамнунмисиз?\nКак вам у нас?\nОставьте свой отзыв, мы всегда онлайн!\n\n" +
+      "📞 " + SUPPORT_PHONE,
     orderDone: (lines, total) =>
       `✅ Заказ принят!\n\n${lines}\n\n💰 Итого: ${total.toLocaleString("ru-RU")} сум`,
     namePrompt: "Пожалуйста, введите только имя (буквами):",
@@ -59,6 +70,7 @@ const mainMenu = (lang) => {
       keyboard: [
         [{ text: t[lang].orderBtn, web_app: { url: urlWithLang } }],
         [{ text: t[lang].changeLang }],
+        [{ text: t[lang].contactBtn }],
       ],
       resize_keyboard: true,
     },
@@ -183,8 +195,17 @@ export const initClientBot = () => {
       return;
     }
 
-    if (user.isVerified && (msg.text === t.uz.changeLang || msg.text === t.ru.changeLang)) {
+    if (!user.isVerified) return;
+
+    // Tilni o'zgartirish
+    if (msg.text === t.uz.changeLang || msg.text === t.ru.changeLang) {
       await clientBot.sendMessage(chatId, t.uz.chooseLang, langKeyboard);
+      return;
+    }
+
+    // Kontakt — faqat foydalanuvchi tanlagan tilda chiqadi
+    if (msg.text === t.uz.contactBtn || msg.text === t.ru.contactBtn) {
+      await clientBot.sendMessage(chatId, t[lang].contactText);
       return;
     }
   });
