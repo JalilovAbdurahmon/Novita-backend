@@ -17,7 +17,8 @@ const t = {
     menu: "📋 Asosiy menyu:",
     changeLang: "🌐 Tilni o'zgartirish",
     orderBtn: "🛒 Menu",
-    orderDone: (product, qty) => `✅ Zakaz qabul qilindi!\n📦 ${product} — ${qty} ta`,
+    orderDone: (lines, total) =>
+      `✅ Zakaz qabul qilindi!\n\n${lines}\n\n💰 Jami: ${total.toLocaleString("ru-RU")} so'm`,
     namePrompt: "Iltimos, faqat ism kiriting (harflar bilan):",
     phonePrompt: "Iltimos, tugmani bosib telefon raqamingizni yuboring:",
   },
@@ -31,7 +32,8 @@ const t = {
     menu: "📋 Главное меню:",
     changeLang: "🌐 Сменить язык",
     orderBtn: "🛒 Меню",
-    orderDone: (product, qty) => `✅ Заказ принят!\n📦 ${product} — ${qty} шт`,
+    orderDone: (lines, total) =>
+      `✅ Заказ принят!\n\n${lines}\n\n💰 Итого: ${total.toLocaleString("ru-RU")} сум`,
     namePrompt: "Пожалуйста, введите только имя (буквами):",
     phonePrompt: "Пожалуйста, нажмите кнопку и отправьте номер телефона:",
   },
@@ -188,7 +190,7 @@ export const initClientBot = () => {
   });
 
   // ── Web App data ──────────────────────────────────────────────────────────
-  // MiniApp dan { type:"order", productId, quantity, lat, lng } keladi
+  // MiniApp dan { type:"order", items: [{productId, quantity}], lat, lng } keladi
   // Hammasi bir xabarda — alohida location kutish kerak emas
   clientBot.on("message", async (msg) => {
     if (!msg.web_app_data) return;
@@ -203,25 +205,61 @@ export const initClientBot = () => {
 
     try {
       const data = JSON.parse(msg.web_app_data.data);
-      const { productId, quantity, lat, lng } = data;
+      const { items, lat, lng } = data;
 
-      if (!productId || !quantity || !lat || !lng) return;
+      if (!Array.isArray(items) || items.length === 0 || !lat || !lng) {
+        console.warn("WebApp data: items yoki location yo'q", data);
+        return;
+      }
 
-      const product = await Product.findById(productId);
-      if (!product) return;
+      // Har bir mahsulotni bazadan tekshirib, joriy narxini olamiz
+      const productIds = items.map((i) => i.productId);
+      const products = await Product.find({ _id: { $in: productIds } });
+      const productMap = new Map(products.map((p) => [String(p._id), p]));
+
+      const orderItems = [];
+      for (const item of items) {
+        const product = productMap.get(String(item.productId));
+        if (!product) continue;
+        const quantity = Number(item.quantity) || 0;
+        if (quantity < 1) continue;
+        orderItems.push({
+          product: product._id,
+          quantity,
+          price: product.price || 0,
+        });
+      }
+
+      if (orderItems.length === 0) {
+        console.warn("WebApp data: hech bir mahsulot bazada topilmadi", items);
+        return;
+      }
+
+      const totalPrice = orderItems.reduce(
+        (sum, i) => sum + i.price * i.quantity,
+        0
+      );
 
       const newOrder = new BotOrder({
         botUser: user._id,
         telegramId,
-        product: product._id,
-        quantity,
+        items: orderItems,
+        totalPrice,
         location: { lat, lng },
       });
       await newOrder.save();
 
+      // Foydalanuvchiga chiroyli ro'yxat qilib ko'rsatamiz
+      const lines = orderItems
+        .map((i) => {
+          const p = productMap.get(String(i.product));
+          return `📦 ${p?.name || ""} — ${i.quantity} ta`;
+        })
+        .join("\n");
+
       await clientBot.sendMessage(
         chatId,
-        t[lang].orderDone(product.name, quantity),
+        t[lang].orderDone(lines, totalPrice),
         mainMenu(lang)
       );
     } catch (err) {
