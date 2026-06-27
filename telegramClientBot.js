@@ -6,27 +6,18 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 
 let clientBot = null;
 
-// Location kelguncha "kutilayotgan" zakazlar shu yerda vaqtincha saqlanadi
-const pendingOrders = new Map();
-
-// ─── TILGA QARAB TEXTLAR ──────────────────────────────────────────────────────
 const t = {
   uz: {
     chooseLang: "🌐 Tilni tanlang / Выберите язык:",
     enterName: "👤 Ismingizni kiriting:",
     sharePhone: "📱 Telefon raqamingizni yuboring:",
     sharePhoneBtn: "📱 Raqamni ulashish",
-    welcome: (name) =>
-      `✅ Xush kelibsiz, ${name}!\n\nQuyidagi menyudan foydalaning:`,
+    welcome: (name) => `✅ Xush kelibsiz, ${name}!\n\nQuyidagi menyudan foydalaning:`,
     alreadyDone: "✅ Siz allaqachon ro'yxatdan o'tgansiz!",
     menu: "📋 Asosiy menyu:",
-    order: "🛒 Menu",
     changeLang: "🌐 Tilni o'zgartirish",
     orderBtn: "🛒 Menu",
-    openMapBtn: "🗺 Xaritada joyni belgilash",
-    sendLocation: "📍 Xaritada aniq joylashuvingizni belgilang:",
-    orderDone: (product, qty) =>
-      `✅ Zakaz qabul qilindi!\n📦 ${product} — ${qty} ta`,
+    orderDone: (product, qty) => `✅ Zakaz qabul qilindi!\n📦 ${product} — ${qty} ta`,
     namePrompt: "Iltimos, faqat ism kiriting (harflar bilan):",
     phonePrompt: "Iltimos, tugmani bosib telefon raqamingizni yuboring:",
   },
@@ -35,22 +26,17 @@ const t = {
     enterName: "👤 Введите ваше имя:",
     sharePhone: "📱 Отправьте ваш номер телефона:",
     sharePhoneBtn: "📱 Поделиться номером",
-    welcome: (name) =>
-      `✅ Добро пожаловать, ${name}!\n\nИспользуйте меню ниже:`,
+    welcome: (name) => `✅ Добро пожаловать, ${name}!\n\nИспользуйте меню ниже:`,
     alreadyDone: "✅ Вы уже зарегистрированы!",
     menu: "📋 Главное меню:",
-    order: "🛒 Меню",
     changeLang: "🌐 Сменить язык",
     orderBtn: "🛒 Меню",
-    openMapBtn: "🗺 Указать место на карте",
-    sendLocation: "📍 Укажите точное местоположение на карте:",
     orderDone: (product, qty) => `✅ Заказ принят!\n📦 ${product} — ${qty} шт`,
     namePrompt: "Пожалуйста, введите только имя (буквами):",
     phonePrompt: "Пожалуйста, нажмите кнопку и отправьте номер телефона:",
   },
 };
 
-// ─── KEYBOARD HELPERS ─────────────────────────────────────────────────────────
 const langKeyboard = {
   reply_markup: {
     inline_keyboard: [
@@ -79,32 +65,12 @@ const mainMenu = (lang) => {
 
 const phoneKeyboard = (lang) => ({
   reply_markup: {
-    keyboard: [
-      [{ text: t[lang].sharePhoneBtn, request_contact: true }],
-    ],
+    keyboard: [[{ text: t[lang].sharePhoneBtn, request_contact: true }]],
     resize_keyboard: true,
     one_time_keyboard: true,
   },
 });
 
-// Xarita mini-app keyboard
-// MINI_APP_URL dan domenni olib /location-picker sahifasini ochamiz
-const locationMapKeyboard = (lang, telegramId) => {
-  const BASE_URL = process.env.MINI_APP_URL;
-  const origin = new URL(BASE_URL).origin;
-  const mapUrl = `${origin}/location-picker?lang=${lang}&tid=${telegramId}`;
-  return {
-    reply_markup: {
-      keyboard: [
-        [{ text: t[lang].openMapBtn, web_app: { url: mapUrl } }],
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: true,
-    },
-  };
-};
-
-// ─── BOT INIT ─────────────────────────────────────────────────────────────────
 export const initClientBot = () => {
   const BOT_TOKEN = process.env.CLIENT_BOT_TOKEN;
   const PROXY_URL = process.env.PROXY_URL;
@@ -125,7 +91,6 @@ export const initClientBot = () => {
   clientBot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
-
     let user = await BotUser.findOne({ telegramId });
 
     if (user?.isVerified) {
@@ -152,7 +117,7 @@ export const initClientBot = () => {
     await clientBot.sendMessage(chatId, t.uz.chooseLang, langKeyboard);
   });
 
-  // ── Til tanlash (callback) ────────────────────────────────────────────────
+  // ── Til tanlash ───────────────────────────────────────────────────────────
   clientBot.on("callback_query", async (query) => {
     const chatId = query.message.chat.id;
     const telegramId = query.from.id;
@@ -160,7 +125,6 @@ export const initClientBot = () => {
     if (query.data === "lang_uz" || query.data === "lang_ru") {
       const lang = query.data === "lang_uz" ? "uz" : "ru";
       await clientBot.answerCallbackQuery(query.id);
-
       const user = await BotUser.findOne({ telegramId });
 
       if (user?.isVerified) {
@@ -190,7 +154,6 @@ export const initClientBot = () => {
 
     const lang = user.lang || "uz";
 
-    // ── Step: name ──────────────────────────────────────────────────────────
     if (user.step === "name" && msg.text) {
       const name = msg.text.trim();
       if (!name || name.length < 2) {
@@ -204,10 +167,8 @@ export const initClientBot = () => {
       return;
     }
 
-    // ── Step: phone ─────────────────────────────────────────────────────────
     if (user.step === "phone" && msg.contact) {
-      const phone = msg.contact.phone_number;
-      user.phone = phone;
+      user.phone = msg.contact.phone_number;
       user.step = "done";
       user.isVerified = true;
       await user.save();
@@ -220,20 +181,15 @@ export const initClientBot = () => {
       return;
     }
 
-    // ── Til almashtirish ─────────────────────────────────────────────────────
-    if (
-      user.isVerified &&
-      (msg.text === t.uz.changeLang || msg.text === t.ru.changeLang)
-    ) {
+    if (user.isVerified && (msg.text === t.uz.changeLang || msg.text === t.ru.changeLang)) {
       await clientBot.sendMessage(chatId, t.uz.chooseLang, langKeyboard);
       return;
     }
   });
 
   // ── Web App data ──────────────────────────────────────────────────────────
-  // Bu handler IKKI xil web_app datani qabul qiladi:
-  // 1) Mahsulot buyurtmasi: { type: "order", productId, quantity }
-  // 2) Lokatsiya (LocationPicker dan): { type: "location", lat, lng }
+  // MiniApp dan { type:"order", productId, quantity, lat, lng } keladi
+  // Hammasi bir xabarda — alohida location kutish kerak emas
   clientBot.on("message", async (msg) => {
     if (!msg.web_app_data) return;
 
@@ -247,67 +203,27 @@ export const initClientBot = () => {
 
     try {
       const data = JSON.parse(msg.web_app_data.data);
+      const { productId, quantity, lat, lng } = data;
 
-      // ── 1) Mahsulot buyurtmasi ────────────────────────────────────────────
-      if (data.type === "order") {
-        const { productId, quantity } = data;
-        const product = await Product.findById(productId);
-        if (!product) return;
+      if (!productId || !quantity || !lat || !lng) return;
 
-        pendingOrders.set(telegramId, { productId: product._id, quantity });
+      const product = await Product.findById(productId);
+      if (!product) return;
 
-        await clientBot.sendMessage(
-          chatId,
-          t[lang].sendLocation,
-          locationMapKeyboard(lang, telegramId)
-        );
-        return;
-      }
+      const newOrder = new BotOrder({
+        botUser: user._id,
+        telegramId,
+        product: product._id,
+        quantity,
+        location: { lat, lng },
+      });
+      await newOrder.save();
 
-      // ── 2) Lokatsiya (LocationPicker mini-app dan) ────────────────────────
-      if (data.type === "location") {
-        const { lat, lng } = data;
-        const pending = pendingOrders.get(telegramId);
-        if (!pending) return;
-
-        const product = await Product.findById(pending.productId);
-
-        const newOrder = new BotOrder({
-          botUser: user._id,
-          telegramId,
-          product: pending.productId,
-          quantity: pending.quantity,
-          location: { lat, lng },
-        });
-        await newOrder.save();
-
-        pendingOrders.delete(telegramId);
-
-        await clientBot.sendMessage(
-          chatId,
-          t[lang].orderDone(product?.name, pending.quantity),
-          mainMenu(lang)
-        );
-        return;
-      }
-
-      // ── Eski format (type yo'q, { productId, quantity }) ──────────────────
-      if (data.productId && data.quantity) {
-        const product = await Product.findById(data.productId);
-        if (!product) return;
-
-        pendingOrders.set(telegramId, {
-          productId: product._id,
-          quantity: data.quantity,
-        });
-
-        await clientBot.sendMessage(
-          chatId,
-          t[lang].sendLocation,
-          locationMapKeyboard(lang, telegramId)
-        );
-      }
-
+      await clientBot.sendMessage(
+        chatId,
+        t[lang].orderDone(product.name, quantity),
+        mainMenu(lang)
+      );
     } catch (err) {
       console.error("WebApp data parse xatosi:", err.message);
     }
