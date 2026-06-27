@@ -253,7 +253,7 @@ export const initClientBot = () => {
       const lines = orderItems
         .map((i) => {
           const p = productMap.get(String(i.product));
-          return `📦 ${p?.name || ""} — ${i.quantity} ta`;
+          return `📦 ${p?.name || ""}: ${i.quantity}`;
         })
         .join("\n");
 
