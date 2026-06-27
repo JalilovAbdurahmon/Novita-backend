@@ -39,6 +39,25 @@ router.get("/users", auth, async (req, res) => {
   }
 });
 
+// DELETE /api/bot/users/:id — admin panel uchun
+router.delete("/users/:id", auth, async (req, res) => {
+  try {
+    const user = await BotUser.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Foydalanuvchi topilmadi" });
+    }
+    res.json({
+      success: true,
+      message: "Foydalanuvchi o'chirildi",
+      data: user,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // PUT /api/bot/orders/:id/status — statusni o'zgartirish
 router.put("/orders/:id/status", auth, async (req, res) => {
   try {
@@ -64,9 +83,7 @@ router.post("/order", async (req, res) => {
     const { telegramId, items, location } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Savat bo'sh" });
+      return res.status(400).json({ success: false, message: "Savat bo'sh" });
     }
 
     const botUser = await BotUser.findOne({ telegramId, isVerified: true });
